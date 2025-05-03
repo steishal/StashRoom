@@ -4,5 +4,11 @@ target/
 
 .idea
 
+.env
+
+.gitattributes
+
+.mvn
+mvnw.cmd
 
 src/main/resources/application.properties

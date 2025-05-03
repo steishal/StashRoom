@@ -11,4 +11,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
     @Query("SELECT u FROM User u WHERE u.vkLink = :link OR u.tgLink = :link")
     List<User> findBySocialLink(@Param("link") String link);
+    boolean existsByPhoneNumber(String phoneNumber);
 }
