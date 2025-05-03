@@ -10,12 +10,24 @@ import org.springframework.beans.factory.annotation.Value;
 
 
 public class PasswordUtils implements PasswordEncoder {
-    @Value("${security.hash.saltLength}")
     private static int saltLength;
-    @Value("${security.hash.iterations}")
     private static int iterations;
-    @Value("${security.hash.keyLength}")
     private static int keyLength;
+
+    @Value("${security.hash.saltLength}")
+    public void setSaltLength(int val) {
+        saltLength = val;
+    }
+
+    @Value("${security.hash.iterations}")
+    public void setIterations(int val) {
+        iterations = val;
+    }
+
+    @Value("${security.hash.keyLength}")
+    public void setKeyLength(int val) {
+        keyLength = val;
+    }
 
     private static String generateSalt() {
         SecureRandom random = new SecureRandom();

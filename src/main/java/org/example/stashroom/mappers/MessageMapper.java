@@ -7,9 +7,12 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface MessageMapper {
+    @Mapping(target = "senderId", source = "sender.id")
     @Mapping(target = "senderUsername", source = "sender.username")
+    @Mapping(target = "receiverId", source = "receiver.id")
     @Mapping(target = "receiverUsername", source = "receiver.username")
     MessageDTO toDto(Message message);
+    @Mapping(target = "id", ignore = true)
     @Mapping(target = "content", source = "dto.content")
     @Mapping(target = "receiver", ignore = true)
     @Mapping(target = "sender", ignore = true)

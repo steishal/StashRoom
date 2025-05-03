@@ -7,10 +7,19 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring", uses = { CategoryMapper.class })
 public interface PostMapper {
+    @Mapping(target = "authorId", source = "author.id")
     @Mapping(target = "authorUsername", source = "author.username")
     @Mapping(target = "category", source = "category")
     PostDTO toDto(Post post);
-    @Mapping(target = "content", source = "dto.content")
-    @Mapping(target = "category", expression = "java(new Category(dto.categoryId(), null))")
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "author", ignore = true)
+    @Mapping(target = "createDate", expression = "java(java.time.LocalDateTime.now())")
+    @Mapping(target = "category", source = "categoryId")
     Post fromCreateDto(PostCreateDTO dto);
+    default Post fromId(Long postId) {
+        if (postId == null) return null;
+        Post post = new Post();
+        post.setId(postId);
+        return post;
+    }
 }
