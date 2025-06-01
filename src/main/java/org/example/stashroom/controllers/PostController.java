@@ -1,12 +1,15 @@
 package org.example.stashroom.controllers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.stashroom.dto.PostCreateDTO;
 import org.example.stashroom.dto.PostDTO;
 import org.example.stashroom.services.PostService;
 import org.example.stashroom.services.SecurityService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
@@ -30,14 +33,18 @@ public class PostController {
         return ResponseEntity.ok(post);
     }
 
-    @PostMapping
-    public ResponseEntity<PostDTO> createPost(@Valid @RequestBody PostCreateDTO dto) {
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PostDTO> createPost(
+            @RequestParam("content") String content,
+            @RequestParam("categoryId") Long categoryId,
+            @RequestParam(value = "images", required = false) List<MultipartFile> images
+    ) {
         String username = securityService.getCurrentUserUsername();
-        PostDTO createdPost = postService.create(username, dto);
+        PostDTO createdPost = postService.create(username, content, categoryId, images);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
-                .buildAndExpand(createdPost.id())
+                .buildAndExpand(createdPost.getId())
                 .toUri();
 
         return ResponseEntity.created(location).body(createdPost);
@@ -47,14 +54,14 @@ public class PostController {
     public ResponseEntity<PostDTO> updatePost(
             @PathVariable Long id,
             @Valid @RequestBody PostCreateDTO dto) {
-        securityService.validatePostOwner(id);
+        postService.validatePostOwner(id);
         PostDTO updatedPost = postService.update(id, dto);
         return ResponseEntity.ok(updatedPost);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePost(@PathVariable Long id) {
-        securityService.validatePostOwner(id);
+        postService.validatePostOwner(id);
         postService.delete(id);
         return ResponseEntity.noContent().build();
     }

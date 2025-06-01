@@ -74,19 +74,19 @@ public class UserService implements UserDetailsService {
     }
 
     public UserDTO authenticate(AuthDTO dto) {
-        log.debug("Authenticating user: {}", dto.username());
-        User user = userRepository.findByUsernameIgnoreCase(dto.username())
+        log.debug("Authenticating user: {}", dto.email());
+        User user = userRepository.findByEmailIgnoreCase(dto.email())
                 .orElseThrow(() -> {
-                    log.error("Authentication failed for user: {}", dto.username());
+                    log.error("Authentication failed for user: {}", dto.email());
                     return new InvalidCredentialsException();
                 });
 
         if (!passwordEncoder.matches(dto.password(), user.getPassword())) {
-            log.error("Invalid password for user: {}", dto.username());
+            log.error("Invalid password for user: {}", dto.email());
             throw new InvalidCredentialsException();
         }
 
-        log.info("User authenticated: {}", dto.username());
+        log.info("User authenticated: {}", dto.email());
         return userMapper.toDto(user);
     }
 

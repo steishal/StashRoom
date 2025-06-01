@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class SecurityService {
     private final UserService userService;
-    private final PostService postService;
 
     public String getCurrentUserUsername() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -60,14 +59,6 @@ public class SecurityService {
 
     public Long getCurrentUserId() {
         return getCurrentUser().id();
-    }
-
-    public void validatePostOwner(Long postId) {
-        PostDTO post = postService.findById(postId);
-        if (!isOwner(post.authorId())) {
-            log.warn("Unauthorized access attempt to post {}", postId);
-            throw new AccessDeniedException("You are not the owner of this post");
-        }
     }
 
     public void validateOwnerOrAdmin(Long userId) {

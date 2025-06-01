@@ -7,13 +7,21 @@ import org.example.stashroom.entities.Category;
 import org.example.stashroom.entities.Post;
 import org.example.stashroom.entities.User;
 import org.example.stashroom.mappers.PostMapper;
-import org.example.stashroom.repositories.CategoryRepository;
-import org.example.stashroom.repositories.PostRepository;
-import org.example.stashroom.repositories.UserRepository;
+import org.example.stashroom.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,59 +31,76 @@ public class PostService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
+    private final PostLikeRepository postLikeRepository;
+    private final CommentRepository commentRepository;
     private final PostMapper postMapper;
+    private final SecurityService securityService;
 
     @Autowired
     public PostService(PostRepository postRepository,
                        UserRepository userRepository,
                        CategoryRepository categoryRepository,
-                       PostMapper postMapper) {
+                       PostLikeRepository postLikeRepository,
+                       CommentRepository commentRepository,
+                       PostMapper postMapper,
+                       SecurityService securityService) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
+        this.postLikeRepository = postLikeRepository;
+        this.commentRepository = commentRepository;
         this.postMapper = postMapper;
+        this.securityService = securityService;
     }
 
     public List<PostDTO> findAll() {
         log.debug("Fetching all posts");
+        Long currentUserId = securityService.getCurrentUserId();
         return postRepository.findAll().stream()
-                .map(postMapper::toDto)
+                .map(post -> postMapper.toDto(post, currentUserId, postLikeRepository, commentRepository))
                 .collect(Collectors.toList());
     }
 
     public PostDTO findById(Long id) {
         log.debug("Fetching post by ID: {}", id);
+        Long currentUserId = securityService.getCurrentUserId();
         return postRepository.findById(id)
-                .map(postMapper::toDto)
+                .map(post -> postMapper.toDto(post, currentUserId, postLikeRepository, commentRepository))
                 .orElseThrow(() -> {
                     log.error("Post not found with ID: {}", id);
                     return new NotFoundException("Post not found");
                 });
     }
 
+    public void validatePostOwner(Long postId) {
+        PostDTO post = findById(postId);
+        if (!securityService.isOwner(post.getAuthor().id())) {
+            log.warn("Unauthorized access attempt to post {}", postId);
+            throw new AccessDeniedException("You are not the owner of this post");
+        }
+    }
+
     @Transactional
-    public PostDTO create(String authorUsername, PostCreateDTO dto) {
+    public PostDTO create(String authorUsername, String content, Long categoryId, List<MultipartFile> images) {
         log.info("Creating new post by user: {}", authorUsername);
 
         User author = userRepository.findByUsernameIgnoreCase(authorUsername)
-                .orElseThrow(() -> {
-                    log.error("Author not found: {}", authorUsername);
-                    return new NotFoundException("User not found");
-                });
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
-        Category category = categoryRepository.findById(dto.categoryId())
-                .orElseThrow(() -> {
-                    log.error("Category not found: {}", dto.categoryId());
-                    return new NotFoundException("Category not found");
-                });
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new NotFoundException("Category not found"));
 
-        Post post = postMapper.fromCreateDto(dto);
+        Post post = new Post();
+        post.setContent(content);
         post.setAuthor(author);
         post.setCategory(category);
 
+        List<String> imageUrls = saveImages(images);
+        post.setImages(imageUrls);
+
         Post saved = postRepository.save(post);
-        log.info("Post created with ID: {}", saved.getId());
-        return postMapper.toDto(saved);
+        Long currentUserId = author.getId();
+        return postMapper.toDto(saved, currentUserId, postLikeRepository, commentRepository);
     }
 
     @Transactional
@@ -83,24 +108,18 @@ public class PostService {
         log.info("Updating post ID: {}", id);
 
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Post not found for update: {}", id);
-                    return new NotFoundException("Post not found");
-                });
+                .orElseThrow(() -> new NotFoundException("Post not found"));
 
         Category category = categoryRepository.findById(dto.categoryId())
-                .orElseThrow(() -> {
-                    log.error("Category not found: {}", dto.categoryId());
-                    return new NotFoundException("Category not found");
-                });
+                .orElseThrow(() -> new NotFoundException("Category not found"));
 
         post.setContent(dto.content());
         post.setCategory(category);
         post.setImages(dto.images() == null ? List.of() : dto.images());
 
         Post updated = postRepository.save(post);
-        log.debug("Post updated successfully: {}", id);
-        return postMapper.toDto(updated);
+        Long currentUserId = securityService.getCurrentUserId();
+        return postMapper.toDto(updated, currentUserId, postLikeRepository, commentRepository);
     }
 
     @Transactional
@@ -112,5 +131,35 @@ public class PostService {
         }
         postRepository.deleteById(id);
         log.debug("Post deleted: {}", id);
+    }
+
+    private List<String> saveImages(List<MultipartFile> images) {
+        if (images == null || images.isEmpty()) return List.of();
+
+        List<String> urls = new ArrayList<>();
+        for (MultipartFile image : images) {
+            try {
+                String filename = UUID.randomUUID() + "_" + image.getOriginalFilename();
+                Path uploadPath = Paths.get("uploads");
+
+                if (!Files.exists(uploadPath)) {
+                    Files.createDirectories(uploadPath);
+                }
+
+                Path filePath = uploadPath.resolve(filename);
+                Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+                String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                        .path("/uploads/")
+                        .path(filename)
+                        .toUriString();
+
+                urls.add(fileUrl);
+            } catch (IOException e) {
+                log.error("Failed to save image", e);
+            }
+        }
+
+        return urls;
     }
 }
