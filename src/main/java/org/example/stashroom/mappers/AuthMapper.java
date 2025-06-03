@@ -5,7 +5,7 @@ import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface AuthMapper {
-    @Mapping(target = "username", source = "dto.username")
-    @Mapping(target = "password", source = "dto.password")
+    @Mapping(target = "email", source = "email")
+    @Mapping(target = "password", source = "password")
     AuthDTO toDto(AuthDTO dto);
 }

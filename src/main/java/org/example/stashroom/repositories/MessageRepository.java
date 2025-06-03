@@ -12,4 +12,14 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
             "(m.sender.id = :userB AND m.receiver.id = :userA) " +
             "ORDER BY m.sentAt ASC")
     List<Message> findConversation(@Param("userA") Long userA, @Param("userB") Long userB);
+
+    @Query("SELECT " +
+            "CASE WHEN m.sender.id = :userId THEN m.receiver.id ELSE m.sender.id END, " +
+            "CASE WHEN m.sender.id = :userId THEN m.receiver.username ELSE m.sender.username END, " +
+            "m.content, " +
+            "m.sentAt " +
+            "FROM Message m " +
+            "WHERE m.sender.id = :userId OR m.receiver.id = :userId " +
+            "ORDER BY m.sentAt DESC")
+    List<Object[]> findChatsForUser(@Param("userId") Long userId);
 }

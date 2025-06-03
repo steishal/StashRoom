@@ -1,4 +1,5 @@
 package org.example.stashroom.services;
+import org.example.stashroom.dto.ChatDTO;
 import org.example.stashroom.entities.User;
 import org.example.stashroom.exceptions.NotFoundException;
 import org.example.stashroom.exceptions.UnauthorizedException;
@@ -23,6 +24,16 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final MessageMapper messageMapper;
+
+    public List<ChatDTO> getUserChats(Long currentUserId) {
+        List<Object[]> results = messageRepository.findChatsForUser(currentUserId);
+        return results.stream().map(row -> new ChatDTO(
+                (Long) row[0],
+                (String) row[1],
+                (String) row[2],
+                (LocalDateTime) row[3]
+        )).toList();
+    }
 
     @Autowired
     public MessageService(MessageRepository messageRepository,
