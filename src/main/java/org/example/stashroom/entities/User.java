@@ -22,7 +22,8 @@ public class User {
     private String phoneNumber;
     private String vkLink;
     private String tgLink;
-    private String avatar;
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Avatar avatar;
     @OneToMany(mappedBy = "author", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
     @Override

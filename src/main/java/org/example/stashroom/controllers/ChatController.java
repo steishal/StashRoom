@@ -12,7 +12,6 @@ import java.util.List;
 @RequestMapping("/api/chats")
 @RequiredArgsConstructor
 public class ChatController {
-
     private final MessageService messageService;
     private final SecurityService securityService;
 
@@ -21,5 +20,12 @@ public class ChatController {
         Long currentUserId = securityService.getCurrentUserId();
         List<ChatDTO> chats = messageService.getUserChats(currentUserId);
         return ResponseEntity.ok(chats);
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<ChatDTO> getOrCreateChat(@PathVariable Long userId) {
+        Long currentUserId = securityService.getCurrentUserId();
+        ChatDTO chat = messageService.findOrCreateChat(currentUserId, userId);
+        return ResponseEntity.ok(chat);
     }
 }

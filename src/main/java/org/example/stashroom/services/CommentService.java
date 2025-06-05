@@ -47,7 +47,7 @@ public class CommentService {
     @Transactional
     public CommentDTO create(String authorUsername, CommentCreateDTO dto) {
         log.info("Creating comment by user: {}", authorUsername);
-        User author = userRepository.findByEmailIgnoreCase(authorUsername)
+        User author = userRepository.findByUsernameIgnoreCase(authorUsername)
                 .orElseThrow(() -> {
                     log.error("User not found: {}", authorUsername);
                     return new NotFoundException("User not found");

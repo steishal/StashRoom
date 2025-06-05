@@ -1,18 +1,18 @@
 package org.example.stashroom.controllers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.example.stashroom.dto.AuthDTO;
-import org.example.stashroom.dto.UserCreateDTO;
-import org.example.stashroom.dto.UserDTO;
-import org.example.stashroom.dto.UserUpdateDTO;
+import org.example.stashroom.dto.*;
 import org.example.stashroom.services.SecurityService;
 import org.example.stashroom.services.UserService;
 import org.example.stashroom.utils.AuthTokenProvider;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -26,6 +26,12 @@ public class UserController {
     public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
         UserDTO user = userService.findById(id);
         return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<UserDTO>> searchUsers(@RequestParam String query) {
+        List<UserDTO> users = userService.searchUsers(query);
+        return ResponseEntity.ok(users);
     }
 
     @PostMapping("/register")
@@ -60,6 +66,21 @@ public class UserController {
     public ResponseEntity<UserDTO> getCurrentUser() {
         UserDTO currentUser = securityService.getCurrentUser();
         return ResponseEntity.ok(currentUser);
+    }
+
+    @PostMapping(value = "/avatar", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<AvatarUploadDTO> uploadAvatar(
+            @RequestParam("userId") Long userId,
+            @RequestParam("avatar") MultipartFile avatarFile) {
+
+        AvatarUploadDTO avatarDto = userService.uploadAvatar(userId, avatarFile);
+        return ResponseEntity.ok(avatarDto);
+    }
+
+    @GetMapping("/{userId}/avatar")
+    public ResponseEntity<AvatarUploadDTO> getAvatar(@PathVariable Long userId) {
+        AvatarUploadDTO avatarDTO = userService.getAvatarByUserId(userId);
+        return ResponseEntity.ok(avatarDTO);
     }
 
     @GetMapping("/username/{username}")

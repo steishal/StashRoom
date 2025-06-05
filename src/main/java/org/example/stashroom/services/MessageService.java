@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.example.stashroom.dto.MessageDTO;
@@ -60,6 +61,11 @@ public class MessageService {
                     log.error("Sender not found: {}", senderUsername);
                     return new NotFoundException("User not found");
                 });
+
+        if (dto.receiverId() == null) {
+            log.error("Receiver ID is null in message from {}", senderUsername);
+            throw new IllegalArgumentException("Receiver ID must not be null");
+        }
 
         User receiver = userRepository.findById(dto.receiverId())
                 .orElseThrow(() -> {
@@ -129,4 +135,24 @@ public class MessageService {
         messageRepository.delete(message);
         log.debug("Message deleted: {}", messageId);
     }
+
+    public ChatDTO findOrCreateChat(Long user1Id, Long user2Id) {
+        User user1 = userRepository.findById(user1Id)
+                .orElseThrow(() -> new NotFoundException("User1 not found"));
+        User user2 = userRepository.findById(user2Id)
+                .orElseThrow(() -> new NotFoundException("User2 not found"));
+
+        Message latestMessage = messageRepository.findLatestMessageBetween(user1Id, user2Id);
+
+        String lastMessageText = latestMessage != null ? latestMessage.getContent() : null;
+        LocalDateTime lastMessageTime = latestMessage != null ? latestMessage.getSentAt() : null;
+
+        return new ChatDTO(
+                user2.getId(),
+                user2.getUsername(),
+                lastMessageText,
+                lastMessageTime
+        );
+    }
+
 }

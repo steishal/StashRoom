@@ -1,14 +1,14 @@
 package org.example.stashroom.services;
 import lombok.extern.slf4j.Slf4j;
-import org.example.stashroom.dto.AuthDTO;
-import org.example.stashroom.dto.UserCreateDTO;
-import org.example.stashroom.dto.UserDTO;
-import org.example.stashroom.dto.UserUpdateDTO;
+import org.example.stashroom.dto.*;
+import org.example.stashroom.entities.Avatar;
 import org.example.stashroom.entities.User;
 import org.example.stashroom.exceptions.DuplicateEntityException;
 import org.example.stashroom.exceptions.InvalidCredentialsException;
 import org.example.stashroom.exceptions.NotFoundException;
+import org.example.stashroom.mappers.AvatarMapper;
 import org.example.stashroom.mappers.UserMapper;
+import org.example.stashroom.repositories.AvatarRepository;
 import org.example.stashroom.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -18,7 +18,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
+import java.util.stream.Collectors;
 @Service
 @Transactional(readOnly = true)
 @Slf4j
@@ -26,14 +28,20 @@ public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final FileStorageService fileStorageService;
+    private final AvatarRepository avatarRepository;
+    private final AvatarMapper avatarMapper;
 
     @Autowired
     public UserService(UserRepository userRepository,
                        UserMapper userMapper,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder, FileStorageService fileStorageService, AvatarRepository avatarRepository, AvatarMapper avatarMapper) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
+        this.fileStorageService = fileStorageService;
+        this.avatarRepository = avatarRepository;
+        this.avatarMapper = avatarMapper;
     }
 
     public UserDTO findById(Long id) {
@@ -149,6 +157,51 @@ public class UserService implements UserDetailsService {
             user.setTgLink(dto.tgLink());
             log.debug("Telegram link updated for user: {}", user.getId());
         }
+    }
+
+    public List<UserDTO> searchUsers(String query) {
+        List<User> users = userRepository.findByUsernameContainingIgnoreCaseOrEmailContainingIgnoreCase(query, query);
+        return users.stream()
+                .map(userMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public AvatarUploadDTO uploadAvatar(Long userId, MultipartFile avatarFile) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        List<String> urls = fileStorageService.saveImages(List.of(avatarFile));
+        if (urls.isEmpty()) {
+            throw new RuntimeException("Avatar upload failed");
+        }
+
+        String avatarUrl = urls.get(0);
+
+        Avatar avatar = new Avatar();
+        avatar.setFilePath(avatarUrl);
+        avatar.setUser(user);
+        avatarRepository.save(avatar);
+
+        user.setAvatar(avatar);
+        userRepository.save(user);
+
+        return avatarMapper.toDto(avatar);
+    }
+
+    public AvatarUploadDTO getAvatarByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        Avatar avatar = user.getAvatar();
+
+        String avatarUrl = (avatar != null) ? avatar.getFilePath() : null;
+
+        AvatarUploadDTO dto = new AvatarUploadDTO();
+        dto.setUserId(userId);
+        dto.setAvatar(avatarUrl);
+
+        return dto;
     }
 
     @Override

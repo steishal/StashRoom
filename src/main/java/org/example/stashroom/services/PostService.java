@@ -13,15 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +27,7 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final PostMapper postMapper;
     private final SecurityService securityService;
+    private final FileStorageService fileStorageService;
 
     @Autowired
     public PostService(PostRepository postRepository,
@@ -43,7 +36,7 @@ public class PostService {
                        PostLikeRepository postLikeRepository,
                        CommentRepository commentRepository,
                        PostMapper postMapper,
-                       SecurityService securityService) {
+                       SecurityService securityService, FileStorageService fileStorageService) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
@@ -51,6 +44,7 @@ public class PostService {
         this.commentRepository = commentRepository;
         this.postMapper = postMapper;
         this.securityService = securityService;
+        this.fileStorageService = fileStorageService;
     }
 
     public List<PostDTO> findAll() {
@@ -95,7 +89,7 @@ public class PostService {
         post.setAuthor(author);
         post.setCategory(category);
 
-        List<String> imageUrls = saveImages(images);
+        List<String> imageUrls = fileStorageService.saveImages(images);
         post.setImages(imageUrls);
 
         Post saved = postRepository.save(post);
@@ -131,35 +125,5 @@ public class PostService {
         }
         postRepository.deleteById(id);
         log.debug("Post deleted: {}", id);
-    }
-
-    private List<String> saveImages(List<MultipartFile> images) {
-        if (images == null || images.isEmpty()) return List.of();
-
-        List<String> urls = new ArrayList<>();
-        for (MultipartFile image : images) {
-            try {
-                String filename = UUID.randomUUID() + "_" + image.getOriginalFilename();
-                Path uploadPath = Paths.get("uploads");
-
-                if (!Files.exists(uploadPath)) {
-                    Files.createDirectories(uploadPath);
-                }
-
-                Path filePath = uploadPath.resolve(filename);
-                Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-                String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                        .path("/uploads/")
-                        .path(filename)
-                        .toUriString();
-
-                urls.add(fileUrl);
-            } catch (IOException e) {
-                log.error("Failed to save image", e);
-            }
-        }
-
-        return urls;
     }
 }

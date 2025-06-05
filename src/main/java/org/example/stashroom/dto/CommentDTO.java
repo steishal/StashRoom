@@ -5,6 +5,7 @@ public record CommentDTO(
         String id,
         String content,
         String authorUsername,
+        Long authorId,
         Long postId,
         LocalDateTime createDate
 ) {}

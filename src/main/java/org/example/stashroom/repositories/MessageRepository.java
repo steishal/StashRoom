@@ -3,7 +3,6 @@ import org.example.stashroom.entities.Message;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
 import java.util.List;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
@@ -22,4 +21,14 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
             "WHERE m.sender.id = :userId OR m.receiver.id = :userId " +
             "ORDER BY m.sentAt DESC")
     List<Object[]> findChatsForUser(@Param("userId") Long userId);
+
+    @Query("""
+    SELECT m FROM Message m 
+    WHERE (m.sender.id = :user1 AND m.receiver.id = :user2)
+       OR (m.sender.id = :user2 AND m.receiver.id = :user1)
+    ORDER BY m.sentAt DESC
+    LIMIT 1
+""")
+    Message findLatestMessageBetween(@Param("user1") Long user1, @Param("user2") Long user2);
+
 }
