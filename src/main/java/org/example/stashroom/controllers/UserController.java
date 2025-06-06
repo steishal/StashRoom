@@ -39,7 +39,7 @@ public class UserController {
         UserDTO createdUser = userService.register(dto);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
-                .buildAndExpand(createdUser.id())
+                .buildAndExpand(createdUser.getId())
                 .toUri();
         return ResponseEntity.created(location).body(createdUser);
     }
@@ -47,7 +47,7 @@ public class UserController {
     @PostMapping("/auth/login")
     public ResponseEntity<UserDTO> login(@Valid @RequestBody AuthDTO dto) {
         UserDTO user = userService.authenticate(dto);
-        String token = authTokenProvider.generateToken(user.username());
+        String token = authTokenProvider.generateToken(user.getUsername(), user.getRole());
         return ResponseEntity.ok()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .body(user);

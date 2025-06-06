@@ -50,7 +50,7 @@ public class SecurityService {
 
     public boolean isOwner(Long userId) {
         UserDTO currentUser = getCurrentUser();
-        return currentUser.id().equals(userId);
+        return currentUser.getId().equals(userId);
     }
 
     public boolean isOwner(String username) {
@@ -58,13 +58,13 @@ public class SecurityService {
     }
 
     public Long getCurrentUserId() {
-        return getCurrentUser().id();
+        return getCurrentUser().getId();
     }
 
     public void validateOwnerOrAdmin(Long userId) {
         UserDTO currentUser = getCurrentUser();
-        if (!currentUser.id().equals(userId) && !hasRole("ADMIN")) {
-            log.warn("Access denied for user {} to resource {}", currentUser.id(), userId);
+        if (!currentUser.getId().equals(userId) && !hasRole("ADMIN")) {
+            log.warn("Access denied for user {} to resource {}", currentUser.getId(), userId);
             throw new AccessDeniedException("Access denied");
         }
     }

@@ -32,12 +32,13 @@ public class AuthTokenProvider {
         this.expiration = expiration;
     }
 
-    public String generateToken(String username) {
+    public String generateToken(String username, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
                 .setSubject(username)
+                .claim("role", role)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key, SignatureAlgorithm.HS512)
@@ -80,11 +81,19 @@ public class AuthTokenProvider {
     }
 
     public Authentication getAuthentication(String token) {
-        String username = getUsernameFromToken(token);
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        String username = claims.getSubject();
+        String role = claims.get("role", String.class);
+
         return new UsernamePasswordAuthenticationToken(
                 username,
                 null,
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
+                Collections.singletonList(new SimpleGrantedAuthority(role))
         );
     }
 }

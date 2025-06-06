@@ -35,7 +35,8 @@ public class UserService implements UserDetailsService {
     @Autowired
     public UserService(UserRepository userRepository,
                        UserMapper userMapper,
-                       PasswordEncoder passwordEncoder, FileStorageService fileStorageService, AvatarRepository avatarRepository, AvatarMapper avatarMapper) {
+                       PasswordEncoder passwordEncoder, FileStorageService fileStorageService,
+                       AvatarRepository avatarRepository, AvatarMapper avatarMapper) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
@@ -96,6 +97,12 @@ public class UserService implements UserDetailsService {
 
         log.info("User authenticated: {}", dto.email());
         return userMapper.toDto(user);
+    }
+
+    public List<UserDTO> findAll() {
+        return userRepository.findAll().stream()
+                .map(userMapper::toDto)
+                .collect(Collectors.toList());
     }
 
     @Transactional

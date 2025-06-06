@@ -13,6 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -68,7 +69,7 @@ public class PostService {
 
     public void validatePostOwner(Long postId) {
         PostDTO post = findById(postId);
-        if (!securityService.isOwner(post.getAuthor().id())) {
+        if (!securityService.isOwner(post.getAuthor().getId())) {
             log.warn("Unauthorized access attempt to post {}", postId);
             throw new AccessDeniedException("You are not the owner of this post");
         }
@@ -88,6 +89,7 @@ public class PostService {
         post.setContent(content);
         post.setAuthor(author);
         post.setCategory(category);
+        post.setCreateDate(LocalDateTime.now());
 
         List<String> imageUrls = fileStorageService.saveImages(images);
         post.setImages(imageUrls);
