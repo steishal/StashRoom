@@ -1,6 +1,7 @@
-package org.example.stashroom.utils;
+package org.example.stashroom.controllers;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.example.stashroom.utils.AuthTokenProvider;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -47,4 +48,3 @@ public class AuthHandshakeInterceptor implements HandshakeInterceptor {
     ) {
     }
 }
-

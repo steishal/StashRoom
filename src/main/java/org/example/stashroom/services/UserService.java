@@ -19,10 +19,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 @Service
-@Transactional(readOnly = true)
+@Transactional
 @Slf4j
 public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
@@ -45,11 +49,17 @@ public class UserService implements UserDetailsService {
         this.avatarMapper = avatarMapper;
     }
 
+    public boolean hasTelegramChatId(Long userId) {
+        String chatId = userRepository.findTelegramChatIdByUserId(userId);
+        return chatId != null && !chatId.isEmpty();
+    }
+
+
     public UserDTO findById(Long id) {
         log.debug("Fetching user by ID: {}", id);
         return userRepository.findById(id)
                 .map(user -> {
-                    log.info("Found user: {}", user.getUsername());
+//                    log.info("Found user: {}", user.getUsername());
                     return userMapper.toDto(user);
                 })
                 .orElseThrow(() -> {
@@ -222,4 +232,93 @@ public class UserService implements UserDetailsService {
                 AuthorityUtils.createAuthorityList(user.getRole())
         );
     }
+
+    @Transactional
+    public String generateTelegramToken(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+        String token = UUID.randomUUID().toString();
+        user.setTelegramLinkToken(token);
+        user.setTelegramLinkTokenExpiration(LocalDateTime.now().plusMinutes(10));
+        userRepository.save(user);
+        log.info("Saving token: {}", token);
+        return token;
+    }
+
+    public void linkTelegramChat(Long userId, String chatId) {
+        System.out.println(">>> Linking telegram: userId=" + userId + ", chatId=" + chatId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        user.setTelegramChatId(chatId);
+        user.setTelegramLinkToken(null);
+        userRepository.save(user);
+        userRepository.flush();
+
+        User saved = userRepository.findById(userId).orElseThrow();
+        System.out.println(">>> After save: " + saved.getTelegramChatId() + " / " + saved.getTelegramLinkToken());
+        System.out.println(">>> Saved user with chatId = " + user.getTelegramChatId());
+    }
+
+    public Optional<User> findByEmailAndPhone(String email, String phone) {
+        return Optional.ofNullable(userRepository.findByEmailAndPhone(email, phone));
+    }
+
+    private void updateUserPassword(UserDTO userDTO, String newPassword) {
+        User user = userRepository.findById(userDTO.getId())
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        user.setPassword(encodedPassword);
+
+        userRepository.save(user);
+    }
+
+    // UserService.java
+    public boolean resetPasswordWithToken(String token, String newPassword) {
+        // Проверка сложности пароля
+        if (!isPasswordValid(newPassword)) {
+            throw new IllegalArgumentException("Пароль не соответствует требованиям");
+        }
+
+        UserDTO userDTO = validateTelegramToken(token);
+        if (userDTO == null) return false;
+
+        updateUserPassword(userDTO, newPassword);
+
+        // Инвалидация токена после использования
+        invalidateTelegramToken(userDTO.getId());
+        return true;
+    }
+
+    private boolean isPasswordValid(String password) {
+        // Минимум 8 символов, цифры, буквы в верхнем и нижнем регистре
+        String pattern = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,}$";
+        return password.matches(pattern);
+    }
+
+    @Transactional
+    public void invalidateTelegramToken(Long userId) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setTelegramLinkToken(null);
+            userRepository.save(user);
+        });
+    }
+
+    public UserDTO validateTelegramToken(String token) {
+        log.debug(token);
+
+        User user = userRepository.findByTelegramLinkToken(token)
+                .orElseThrow(() -> new NotFoundException("Invalid token"));
+
+        if (user.getTelegramLinkTokenExpiration() == null ||
+                user.getTelegramLinkTokenExpiration().isBefore(LocalDateTime.now())) {
+            log.warn("Token expired for user {}", user.getId());
+            throw new NotFoundException("Token has expired");
+        }
+
+        return userMapper.toDto(user);
+    }
+
 }

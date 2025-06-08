@@ -34,7 +34,13 @@ public class SecurityConfig {
                                 "/api/users/register",
                                 "/api/users/auth/login",
                                 "/uploads/**",
-                                "/ws/**"
+                                "/ws/**",
+                                "/api/sms/send",
+                                "/api/sms/verify",
+                                "/api/users/telegram/confirm",
+                                "/api/users/telegram/validate-token",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
@@ -58,10 +64,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedOriginPatterns(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
+        config.setExposedHeaders(List.of("Authorization"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

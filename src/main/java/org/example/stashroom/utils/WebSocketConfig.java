@@ -1,4 +1,5 @@
 package org.example.stashroom.utils;
+import org.example.stashroom.controllers.AuthHandshakeInterceptor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;

@@ -1,6 +1,7 @@
 package org.example.stashroom.controllers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.stashroom.dto.*;
 import org.example.stashroom.services.SecurityService;
 import org.example.stashroom.services.UserService;
@@ -14,6 +15,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -88,4 +90,33 @@ public class UserController {
         UserDTO user = userService.findByUsername(username);
         return ResponseEntity.ok(user);
     }
+
+    @PostMapping("/telegram/generate-token")
+    public ResponseEntity<String> generateTelegramToken() {
+        UserDTO currentUser = securityService.getCurrentUser();
+        String token = userService.generateTelegramToken(currentUser.getId());
+        return ResponseEntity.ok(token);
+    }
+
+    @PostMapping("/telegram/validate-token")
+    public ResponseEntity<UserDTO> validateToken(@RequestHeader("X-Telegram-Token") String token) {
+        log.info("Received token validation request for token: {}", token);
+        UserDTO user = userService.validateTelegramToken(token);
+        log.info("User found: {}", user != null ? user.getId() : "null");
+        return ResponseEntity.ok(user);
+    }
+
+    @PostMapping("/telegram/confirm")
+    public ResponseEntity<?> confirmTelegramLink(@RequestBody TelegramConfirmationRequest request) {
+        System.out.println(">>> Confirm endpoint called: userId=" + request.userId() + ", chatId=" + request.chatId());
+        userService.linkTelegramChat(request.userId(), request.chatId());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{id}/hasTelegramChatId")
+    public ResponseEntity<Boolean> hasTelegramChatId(@PathVariable Long id) {
+        boolean hasChatId = userService.hasTelegramChatId(id);
+        return ResponseEntity.ok(hasChatId);
+    }
+
 }
