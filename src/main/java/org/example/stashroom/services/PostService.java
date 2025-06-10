@@ -124,8 +124,6 @@ public class PostService {
         log.info("Deleting post ID: {}", id);
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Post not found"));
-
-        // Удалить связанные сущности явно
         commentRepository.deleteAllByPost(post);
         postLikeRepository.deleteAllByPost(post);
 

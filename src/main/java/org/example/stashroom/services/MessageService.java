@@ -1,8 +1,7 @@
 package org.example.stashroom.services;
 import jakarta.persistence.EntityNotFoundException;
 import org.example.stashroom.controllers.MessageWebSocketController;
-import org.example.stashroom.dto.ChatDTO;
-import org.example.stashroom.dto.ChatPreviewDTO;
+import org.example.stashroom.dto.*;
 import org.example.stashroom.entities.User;
 import org.example.stashroom.exceptions.MessageEditTimeExpiredException;
 import org.example.stashroom.exceptions.NotFoundException;
@@ -22,8 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.example.stashroom.dto.MessageDTO;
-import org.example.stashroom.dto.MessageCreateDTO;
+
 import org.example.stashroom.entities.Message;
 import org.example.stashroom.mappers.MessageMapper;
 
@@ -82,7 +80,7 @@ public class MessageService {
         log.info("Message sent with ID: {}", saved.getId());
 
         MessageDTO responseDto = messageMapper.toDto(saved);
-        responseDto.setTempId(dto.getTempId()); // Берем tempId из самого dto
+        responseDto.setTempId(dto.getTempId());
         responseDto.setSenderId(sender.getId());
         responseDto.setReceiverId(receiver.getId());
         responseDto.setSenderUsername(sender.getUsername());
@@ -128,7 +126,7 @@ public class MessageService {
 
 
     @Transactional
-    public MessageWebSocketController.MessageInfo deleteMessage(Long messageId, String currentUsername) {
+    public MessageInfo deleteMessage(Long messageId, String currentUsername) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new NotFoundException("Message not found"));
 
@@ -148,7 +146,7 @@ public class MessageService {
 
         messageRepository.delete(message);
 
-        return new MessageWebSocketController.MessageInfo(senderId, receiverId);
+        return new MessageInfo(senderId, receiverId);
     }
 
     public ChatDTO findOrCreateChat(Long user1Id, Long user2Id) {
