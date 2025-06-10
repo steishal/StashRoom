@@ -19,7 +19,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -59,7 +58,6 @@ public class UserService implements UserDetailsService {
         log.debug("Fetching user by ID: {}", id);
         return userRepository.findById(id)
                 .map(user -> {
-//                    log.info("Found user: {}", user.getUsername());
                     return userMapper.toDto(user);
                 })
                 .orElseThrow(() -> {
@@ -165,6 +163,12 @@ public class UserService implements UserDetailsService {
                 });
     }
 
+    public String getUsernameById(Long userId) {
+        return userRepository.findUsernameById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + userId));
+    }
+
+
     private void updateSocialLinks(User user, UserUpdateDTO dto) {
         if (dto.vkLink() != null) {
             user.setVkLink(dto.vkLink());
@@ -195,9 +199,13 @@ public class UserService implements UserDetailsService {
 
         String avatarUrl = urls.get(0);
 
-        Avatar avatar = new Avatar();
+        Avatar avatar = user.getAvatar();
+        if (avatar == null) {
+            avatar = new Avatar();
+            avatar.setUser(user);
+        }
+
         avatar.setFilePath(avatarUrl);
-        avatar.setUser(user);
         avatarRepository.save(avatar);
 
         user.setAvatar(avatar);
@@ -275,25 +283,18 @@ public class UserService implements UserDetailsService {
         userRepository.save(user);
     }
 
-    // UserService.java
     public boolean resetPasswordWithToken(String token, String newPassword) {
-        // Проверка сложности пароля
         if (!isPasswordValid(newPassword)) {
             throw new IllegalArgumentException("Пароль не соответствует требованиям");
         }
-
         UserDTO userDTO = validateTelegramToken(token);
         if (userDTO == null) return false;
-
         updateUserPassword(userDTO, newPassword);
-
-        // Инвалидация токена после использования
         invalidateTelegramToken(userDTO.getId());
         return true;
     }
 
     private boolean isPasswordValid(String password) {
-        // Минимум 8 символов, цифры, буквы в верхнем и нижнем регистре
         String pattern = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,}$";
         return password.matches(pattern);
     }

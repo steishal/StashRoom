@@ -1,6 +1,10 @@
 package org.example.stashroom.services;
+import jakarta.persistence.EntityNotFoundException;
+import org.example.stashroom.controllers.MessageWebSocketController;
 import org.example.stashroom.dto.ChatDTO;
+import org.example.stashroom.dto.ChatPreviewDTO;
 import org.example.stashroom.entities.User;
+import org.example.stashroom.exceptions.MessageEditTimeExpiredException;
 import org.example.stashroom.exceptions.NotFoundException;
 import org.example.stashroom.exceptions.UnauthorizedException;
 import org.example.stashroom.repositories.MessageRepository;
@@ -9,9 +13,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
+
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.example.stashroom.dto.MessageDTO;
 import org.example.stashroom.dto.MessageCreateDTO;
@@ -26,6 +35,15 @@ public class MessageService {
     private final UserRepository userRepository;
     private final MessageMapper messageMapper;
 
+    @Autowired
+    public MessageService(MessageRepository messageRepository,
+                          UserRepository userRepository,
+                          MessageMapper messageMapper) {
+        this.messageRepository = messageRepository;
+        this.userRepository = userRepository;
+        this.messageMapper = messageMapper;
+    }
+
     public List<ChatDTO> getUserChats(Long currentUserId) {
         List<Object[]> results = messageRepository.findChatsForUser(currentUserId);
         return results.stream().map(row -> new ChatDTO(
@@ -36,56 +54,46 @@ public class MessageService {
         )).toList();
     }
 
-    @Autowired
-    public MessageService(MessageRepository messageRepository,
-                          UserRepository userRepository,
-                          MessageMapper messageMapper) {
-        this.messageRepository = messageRepository;
-        this.userRepository = userRepository;
-        this.messageMapper = messageMapper;
-    }
-
+    @Transactional(readOnly = true)
     public List<MessageDTO> findConversation(Long userA, Long userB) {
         log.debug("Fetching conversation between users {} and {}", userA, userB);
         return messageRepository.findConversation(userA, userB).stream()
                 .map(messageMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
-    public MessageDTO sendMessage(String senderUsername, MessageCreateDTO dto) {
-        log.info("Sending message from {} to {}", senderUsername, dto.receiverId());
+    public MessageDTO sendMessage(String senderUsername, MessageDTO dto) {
+        log.info("Sending message from {} to {}", senderUsername, dto.getReceiverId());
 
         User sender = userRepository.findByUsernameIgnoreCase(senderUsername)
-                .orElseThrow(() -> {
-                    log.error("Sender not found: {}", senderUsername);
-                    return new NotFoundException("User not found");
-                });
+                .orElseThrow(() -> new NotFoundException("Sender not found"));
 
-        if (dto.receiverId() == null) {
-            log.error("Receiver ID is null in message from {}", senderUsername);
-            throw new IllegalArgumentException("Receiver ID must not be null");
-        }
-
-        User receiver = userRepository.findById(dto.receiverId())
-                .orElseThrow(() -> {
-                    log.error("Receiver not found: {}", dto.receiverId());
-                    return new NotFoundException("Receiver not found");
-                });
+        User receiver = userRepository.findById(dto.getReceiverId())
+                .orElseThrow(() -> new NotFoundException("Receiver not found"));
 
         Message msg = new Message();
-        msg.setContent(dto.content());
+        msg.setContent(dto.getContent());
         msg.setSender(sender);
         msg.setReceiver(receiver);
         msg.setSentAt(LocalDateTime.now());
 
         Message saved = messageRepository.save(msg);
         log.info("Message sent with ID: {}", saved.getId());
-        return messageMapper.toDto(saved);
+
+        MessageDTO responseDto = messageMapper.toDto(saved);
+        responseDto.setTempId(dto.getTempId()); // Берем tempId из самого dto
+        responseDto.setSenderId(sender.getId());
+        responseDto.setReceiverId(receiver.getId());
+        responseDto.setSenderUsername(sender.getUsername());
+        responseDto.setReceiverUsername(receiver.getUsername());
+
+        return responseDto;
     }
 
+
     @Transactional
-    public MessageDTO updateMessage(Long messageId, String currentUsername, MessageCreateDTO dto) {
+    public MessageDTO updateMessage(Long messageId, String currentUsername, MessageDTO dto) {
         log.info("Updating message ID: {}", messageId);
 
         Message message = messageRepository.findById(messageId)
@@ -105,21 +113,24 @@ public class MessageService {
             throw new UnauthorizedException("You can only edit your own messages");
         }
 
-        message.setContent(dto.content());
+        if (Duration.between(message.getSentAt(), LocalDateTime.now()).toHours() >= 24) {
+            log.warn("Edit time expired for message ID: {}", messageId);
+            throw new MessageEditTimeExpiredException();
+        }
+
+        message.setContent(dto.getContent());
+
         Message updated = messageRepository.save(message);
         log.debug("Message updated: {}", messageId);
         return messageMapper.toDto(updated);
     }
 
-    @Transactional
-    public void deleteMessage(Long messageId, String currentUsername) {
-        log.info("Deleting message ID: {}", messageId);
 
+
+    @Transactional
+    public MessageWebSocketController.MessageInfo deleteMessage(Long messageId, String currentUsername) {
         Message message = messageRepository.findById(messageId)
-                .orElseThrow(() -> {
-                    log.error("Message not found: {}", messageId);
-                    return new NotFoundException("Message not found");
-                });
+                .orElseThrow(() -> new NotFoundException("Message not found"));
 
         User currentUser = userRepository.findByUsernameIgnoreCase(currentUsername)
                 .orElseThrow(() -> {
@@ -132,8 +143,12 @@ public class MessageService {
             throw new UnauthorizedException("You can only delete your own messages");
         }
 
+        Long senderId = message.getSender().getId();
+        Long receiverId = message.getReceiver().getId();
+
         messageRepository.delete(message);
-        log.debug("Message deleted: {}", messageId);
+
+        return new MessageWebSocketController.MessageInfo(senderId, receiverId);
     }
 
     public ChatDTO findOrCreateChat(Long user1Id, Long user2Id) {
@@ -155,4 +170,26 @@ public class MessageService {
         );
     }
 
+    public List<ChatPreviewDTO> getChatPreviews(Long userId) {
+        User currentUser = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        List<Message> lastMessages = messageRepository.findLastMessagesForEachChat(currentUser);
+
+        return lastMessages.stream()
+                .map(message -> {
+                    User chatWith = message.getSender().equals(currentUser)
+                            ? message.getReceiver()
+                            : message.getSender();
+
+                    return new ChatPreviewDTO(
+                            chatWith.getId(),
+                            chatWith.getUsername(),
+                            message.getContent(),
+                            message.getSender().getUsername(),
+                            message.getSentAt()
+                    );
+                })
+                .toList();
+    }
 }

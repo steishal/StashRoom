@@ -2,6 +2,7 @@ package org.example.stashroom.controllers;
 
 import lombok.RequiredArgsConstructor;
 import org.example.stashroom.dto.ChatDTO;
+import org.example.stashroom.dto.ChatPreviewDTO;
 import org.example.stashroom.services.MessageService;
 import org.example.stashroom.services.SecurityService;
 import org.springframework.http.ResponseEntity;
@@ -28,4 +29,12 @@ public class ChatController {
         ChatDTO chat = messageService.findOrCreateChat(currentUserId, userId);
         return ResponseEntity.ok(chat);
     }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<ChatPreviewDTO>> getChats() {
+        Long currentUserId = securityService.getCurrentUserId();
+        List<ChatPreviewDTO> chats = messageService.getChatPreviews(currentUserId);
+        return ResponseEntity.ok(chats);
+    }
+
 }

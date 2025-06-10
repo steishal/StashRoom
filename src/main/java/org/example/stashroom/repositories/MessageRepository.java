@@ -1,5 +1,6 @@
 package org.example.stashroom.repositories;
 import org.example.stashroom.entities.Message;
+import org.example.stashroom.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,5 +31,16 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     LIMIT 1
 """)
     Message findLatestMessageBetween(@Param("user1") Long user1, @Param("user2") Long user2);
+    @Query("""
+    SELECT m FROM Message m
+    WHERE (m.sender = :user OR m.receiver = :user)
+    AND m.sentAt = (
+        SELECT MAX(m2.sentAt) FROM Message m2
+        WHERE 
+            (m2.sender = m.sender AND m2.receiver = m.receiver)
+            OR (m2.sender = m.receiver AND m2.receiver = m.sender)
+    )
+""")
+    List<Message> findLastMessagesForEachChat(@Param("user") User user);
 
 }

@@ -9,7 +9,10 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -105,5 +108,14 @@ public class GlobalExceptionHandler {
                         "error", "Internal Server Error",
                         "message", "An unexpected error occurred"
                 ));
+    }
+
+    @ExceptionHandler(MessageEditTimeExpiredException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Map<String, String> handleEditTimeExpired(MessageEditTimeExpiredException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("type", "ERROR");
+        error.put("message", ex.getMessage());
+        return error;
     }
 }

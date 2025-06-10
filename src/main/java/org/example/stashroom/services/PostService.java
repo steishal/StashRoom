@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -111,7 +112,7 @@ public class PostService {
 
         post.setContent(dto.content());
         post.setCategory(category);
-        post.setImages(dto.images() == null ? List.of() : dto.images());
+        post.setImages(dto.images() == null ? new ArrayList<>() : new ArrayList<>(dto.images()));
 
         Post updated = postRepository.save(post);
         Long currentUserId = securityService.getCurrentUserId();
@@ -121,11 +122,15 @@ public class PostService {
     @Transactional
     public void delete(Long id) {
         log.info("Deleting post ID: {}", id);
-        if (!postRepository.existsById(id)) {
-            log.warn("Post not found for deletion: {}", id);
-            throw new NotFoundException("Post not found");
-        }
-        postRepository.deleteById(id);
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Post not found"));
+
+        // Удалить связанные сущности явно
+        commentRepository.deleteAllByPost(post);
+        postLikeRepository.deleteAllByPost(post);
+
+        postRepository.delete(post);
         log.debug("Post deleted: {}", id);
     }
+
 }

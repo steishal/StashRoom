@@ -18,4 +18,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u.telegramChatId FROM User u WHERE u.id = :userId")
     String findTelegramChatIdByUserId(@Param("userId") Long userId);
     Optional<User> findByTelegramLinkToken(String token);
+    @Query("SELECT u.username FROM User u WHERE u.id = :userId")
+    Optional<String> findUsernameById(@Param("userId") Long userId);
+
 }

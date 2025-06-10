@@ -8,4 +8,5 @@ public interface CommentRepository extends JpaRepository<Comment, String> {
     List<Comment> findByPostId(Long postId);
     int countByPost(Post post);
     int countByPostId(Long postId);
+    void deleteAllByPost(Post post);
 }
