@@ -22,14 +22,11 @@ public class AuthTokenProvider {
     private final long expiration;
 
     public AuthTokenProvider() {
-        Dotenv dotenv = Dotenv.load();
-        String secret = dotenv.get("JWT_SECRET");
-//        String secret = System.getenv("JWT_SECRET");
+        String secret = System.getenv("JWT_SECRET");
         if (secret == null || secret.isBlank()) {
             throw new IllegalArgumentException("JWT_SECRET must not be null or empty");
         }
-//        long expiration = Long.parseLong(Objects.requireNonNull(System.getenv("JWT_EXPIRATION")));
-        long expiration = Long.parseLong(Objects.requireNonNull(dotenv.get("JWT_EXPIRATION")));
+        long expiration = Long.parseLong(Objects.requireNonNull(System.getenv("JWT_EXPIRATION")));
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expiration = expiration;
     }
